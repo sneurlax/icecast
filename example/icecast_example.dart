@@ -1,42 +1,58 @@
 import 'dart:io';
 
+import 'package:console/console.dart';
+import 'package:icecast/src/stream.dart';
+
 void main() async {
-  final url = 'stream.rekt.network';
-  final resource = 'datawave.ogg';
+  var icecastStream = Stream(
+    url: "stream.rekt.network",
+    resource: "datawave.ogg",
+  );
+  var subscription = await icecastStream.connect();
 
-  final socket = await Socket.connect(url, 80);
+  // Wait for the header to be parsed before printing.
+  await Future.delayed(Duration(seconds: 1)); // Adjust the delay as needed.
 
-  socket.writeln('GET /$resource HTTP/1.1');
-  socket.writeln('Host: $url');
-  socket.writeln('Icy-MetaData: 1');
-  socket.writeln('User-Agent: WinampMPEG/2.9');
-  socket.writeln('Accept: */*');
-  socket.writeln('Connection: Close');
-  socket.writeln();
+  print('Header: ${icecastStream.header?.contentType}');
 
-  var header = StringBuffer();
-  var headerComplete = false;
-  var prevCharCode;
+  // Set lineMode to false to listen for each byte of input.
+  stdin.lineMode = false;
 
-  await for (var data in socket) {
-    final response = String.fromCharCodes(data);
-    header.write(response);
+  // Start a command-line interface.
+  while (true) {
+    stdout.write("Enter a command: (\"help\" for help)\n\$ ");
 
-    for (var charCode in data) {
-      if (prevCharCode == 13 && charCode == 10) { // Check for CRLF
-        if (header.toString().endsWith('\r\n\r\n')) {
-          headerComplete = true;
-          break;
-        }
-      }
-      prevCharCode = charCode;
-    }
+    // Read a line of input from the user.
+    var input = Console.readLine();
 
-    if (headerComplete) {
-      break;
+    // Remove the "$ " prefix from the input.
+    // input = input.startsWith('\$ ') ? input?.substring(2) : input;
+    input?.substring(2);
+
+    // Execute the command.
+    switch (input?.toLowerCase()) {
+      case 'c':
+        // Stop the stream when the 'C' command is entered.
+        subscription.cancel();
+        print('Stopped listening.');
+        break;
+      case 'help':
+        // Print a help message when the 'help' command is entered.
+        print('Help:\n'
+            '- "close" to stop listening.\n'
+            '- "help" for this help message.\n'
+            '- "quit" or "exit" to quit the program.');
+        break;
+      case 'exit':
+      case 'quit':
+        // Exit the program when the 'exit' or 'quit' command is entered.
+        print('Exiting program.');
+        exit(0);
+        break;
+      default:
+        // Print an error message if the command doesn't exist.
+        print('Error: Command not found.');
+        break;
     }
   }
-
-  print(header.toString());
-  socket.close();
 }
